@@ -60,11 +60,13 @@ save 10a_24h_drug_effects.mat
 %% PCA
 load 10a_24h_drug_effects.mat
 n_drugs = length(drugs);
-dfx = log2(drug_effects);
-dfx = dfx - repmat(mean(dfx), n_drugs, 1);
-[coeff, effects_pca, latent] = pca(dfx);
-x = effects_pca(:,1);
-y = effects_pca(:,2);
+drug_effects = log2(drug_effects);
+mn_drug_effects = mean(drug_effects);
+drug_effects = drug_effects - repmat(mn_drug_effects, n_drugs, 1);
+[coeff, effects_pca, latent] = pca(drug_effects);
+offset = -mn_drug_effects * coeff;
+x = effects_pca(:, 1) - offset(1);
+y = effects_pca(:, 2) - offset(2);
 clf();
 plot (x, y, '*');
 for k = 1 : length(drugs)
@@ -76,9 +78,11 @@ for c = 1 : 2
 end
 for a = idx_stain'
     vec = zeros(19, 1);
-    vec(a) = 1;
+    vec(a) = -1;
     vec = vec' * coeff;
     h = annotation('arrow');
     set(h, 'parent', gca(), 'position', [0, 0, vec(1), vec(2)]);
-    text(1.1 * vec(1), 1.1 * vec(2), signals_647{a});
+    text(1.2 * vec(1), 1.2 * vec(2), signals_647{a});
 end
+xlim([-2.5, 0.5]);
+ylim([-1.25, 1]);
