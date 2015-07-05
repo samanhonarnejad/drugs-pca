@@ -89,11 +89,17 @@ end
 % identify clusters of signaling states in control well. Use cosine, i.e.
 % angle between stain vectors as distance metric such that even one stain
 % can make a difference. Begin with a large number of clusters k.
-rep = loadcycif(2, 4, 'exclude', ignore);
+close all;
+conc_idx = [3, 3, 4, 3];
+drug_id = 1;
+disp(drug(drug_id).name);
+rep = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), 'exclude', ignore);
+
+% rep = loadcycif(2, 4, 'exclude', ignore);
 n_cells = size(rep.data, 1);
 sd_rep = sqrt(var(rep.data));
 rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
-k = 6;
+k = 5;
 idx = kmeans(rep.data, k, 'Replicates', 10, 'Distance', 'cosine');
 
 %% histogram along projection onto axis between cluster centers
@@ -112,7 +118,7 @@ for k1 = 1 : k - 1
         [n2, x2] = hist(subpop2, 100);
         disp(sum(n2));
         [n_both, x_both] = hist(rep.data(idx == k1 | idx == k2, :) * sep, 100);
-        subplot(3, 3, p);
+        subplot(4, 4, p);
         p = p + 1;
         plot([x1; x2; x_both]', [n1; n2; n_both]');
         title(sprintf('cluster %d vs cluster %d', k1, k2));
@@ -120,13 +126,13 @@ for k1 = 1 : k - 1
 end
 
 %% this was done by eye because cluster labels change
-idx(idx == 3 | idx == 6) = 2;
-idx(idx == 5) = 3;
+idx(idx == 2) = 1;
+idx(idx == 5) = 2;
 k = 4;
 figure(); % ... go back to plotting histograms
 
 %%
-idx(idx == 3) = 2;
+idx(idx == 3) = 1;
 idx(idx == 4) = 3;
 k = 3;
 figure(); % ... go back to plotting histograms
@@ -135,12 +141,19 @@ figure(); % ... go back to plotting histograms
 % Eventually, we converge at three clusters, with one very small cluster of
 % about 1.5% of the whole population. We calculate the vector between the
 % center of that cluster and all other cells to see what makes the
-% difference.
+% difference. No interesting observations here for any of the other drugs.
 
 c1 = mean(rep.data(idx ~= 3, :));
 c2 = mean(rep.data(idx == 3, :));
-[~, idx_stain] = sort(abs(c2 - c1), 'descend');
-disp(rep.names(idx_stain(1 : 2)));
+[shift_sorted, idx_stain] = sort(abs(c2 - c1), 'descend');
+
+%%
+disp(rep.names(idx_stain(1 : 3)));
+
+% pS6(235) and pS6(240) distinguish a new cluster after Lapatinib
+% treatment.
+%
+
 
 %% Correlations
 [rho, names] = staincorr([2, 7], [4, 11], idx_y);
