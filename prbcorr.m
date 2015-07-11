@@ -3,7 +3,7 @@ ignore = [5, 6, 14, 16 : 24, 30, 31, 33, 34];
 drug = struct('name', {'Lap', 'Selu', 'Dact', 'PP242'}, 'col', {[4, 5], ...
     [6, 7], [8, 9], [10, 11]});
 
-%% PCA
+%% PCA of drug effects on bulk signaling states.
 % load and average all controls
 first_col = 4;
 last_col = 11;
@@ -52,50 +52,18 @@ for d = 1 : 4
         mn_prev = mn;
     end
 end
-
-% 1: overall trend with p-RB
+% 1: overall trend with p-RB, but the two strongest components are pS6
 % 2: p27
-% 3: p-S6
+% 3: again p-S6
+% CDK2 was not part of the CyCIF stains but p27 and CDK2 can be assumed to
+% be opposing signaling components (check for anticorration between p27 and
+% CDK2 in non-CyCIF dataset).
 
-%%
-% The PCA of titration effects show a dose for each drug that captures the
-% most variation
-conc_idx = [5, 3, 2, 3];
-delta_drug = zeros(4, n_ch);
-limit = zeros(8, n_ch);
-for d = 1 : 4
-    rep1 = loadcycif(conc_idx(d), drug(d).col(1), 'exclude', ignore);
-    rep2 = loadcycif(conc_idx(d), drug(d).col(2), 'exclude', ignore);
-    pooled = [rep1.data; rep2.data];
-    limit((d * 2 - 1) : (d * 2), :) = prctile(pooled, [1, 99]);
-    mn_drug = mean(pooled);
-    n = n + 1;
-    delta_drug(n, :) = mn_drug ./ mn_ctrl - 1;    
-end
-coeff = pca(delta_drug);
-max_sig = max(limit);
-max_sig_pca = max_sig * coeff;
-figure();
-for d = 1 : 4
-    rep = loadcycif(conc_idx(d), drug(d).col(1), 'exclude', ignore);
-    rep_pca = rep.data * coeff;
-    subplot(1, 4, d);
-    scatplot(rep_pca(:, 1), rep.data(:, 7));
-    xlim([0, 1.1 * max_sig_pca(1)]);
-    ylim([0, 1.1 * max_sig(7)]);
-end
-
-%% Cluster analysis of single-cell states
+%% Cluster analysis of single-cell states in control condition
 % identify clusters of signaling states in control well. Use cosine, i.e.
 % angle between stain vectors as distance metric such that even one stain
 % can make a difference. Begin with a large number of clusters k.
-close all;
-conc_idx = [3, 3, 4, 3];
-drug_id = 1;
-disp(drug(drug_id).name);
-rep = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), 'exclude', ignore);
-
-% rep = loadcycif(2, 4, 'exclude', ignore);
+rep = loadcycif(2, drug(drug_id).col(2), 'exclude', ignore);
 n_cells = size(rep.data, 1);
 sd_rep = sqrt(var(rep.data));
 rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
@@ -118,7 +86,7 @@ for k1 = 1 : k - 1
         [n2, x2] = hist(subpop2, 100);
         disp(sum(n2));
         [n_both, x_both] = hist(rep.data(idx == k1 | idx == k2, :) * sep, 100);
-        subplot(4, 4, p);
+        subplot(4, 3, p);
         p = p + 1;
         plot([x1; x2; x_both]', [n1; n2; n_both]');
         title(sprintf('cluster %d vs cluster %d', k1, k2));
@@ -126,8 +94,7 @@ for k1 = 1 : k - 1
 end
 
 %% this was done by eye because cluster labels change
-idx(idx == 2) = 1;
-idx(idx == 5) = 2;
+idx(idx == 5) = 3;
 k = 4;
 figure(); % ... go back to plotting histograms
 
@@ -137,22 +104,94 @@ idx(idx == 4) = 3;
 k = 3;
 figure(); % ... go back to plotting histograms
 
-%% Characterize clusters
-% Eventually, we converge at three clusters, with one very small cluster of
-% about 1.5% of the whole population. We calculate the vector between the
-% center of that cluster and all other cells to see what makes the
-% difference. No interesting observations here for any of the other drugs.
+%%
+whole = mean(rep.data);
+for n = 1 : k
+    clst = mean(rep.data(idx == n, :));
+    shift = clst - whole;
+    [~, idx_stain] = sort(abs(shift), 'descend');
+    fprintf('\ncluster %d: %d\n', n, sum(idx == n));
+    for p = 1 : 3
+        fprintf('%s: %f\n', rep.names{idx_stain(p)}, shift(idx_stain(p)));
+    end
+end
 
-c1 = mean(rep.data(idx ~= 3, :));
-c2 = mean(rep.data(idx == 3, :));
-[shift_sorted, idx_stain] = sort(abs(c2 - c1), 'descend');
+% cluster 1: 11476     cluster 2: 202      cluster 3: 2859
+% p-RB: -0.460307      p-H3: 7.771845      p-RB: 1.686127
+% pS6(240): -0.333169  p-Aurora: 7.421638  PCNA: 1.201503
+% pS6(235): -0.305965  gH2ax: 3.796556     pS6(240): 1.193047
+%
+% We believe that cluster 2 corresponds to mitotic cells. The two other
+% clusters are much more populated and correspond to a pRb/pS6-high or
+% pRb/pS6-low state. It is difficult to find more than two clusters in
+% any of the drug-treated cells.
 
 %%
-disp(rep.names(idx_stain(1 : 3)));
+ctrl = loadcycif(2, 4, 'exclude', ignore);
+n_cells = size(ctrl.data, 1);
+ctrl.data = ctrl.data ./ repmat(sd_rep, n_cells, 1);
 
-% pS6(235) and pS6(240) distinguish a new cluster after Lapatinib
-% treatment.
-%
+ctrl_pca = ctrl.data * coeff;
+
+xrng = prctile(ctrl_pca(:, 1), [1, 99]);
+xctr = mean(xrng);
+xrng = (xrng - xctr) * 1.1 + xctr;
+xrng0 = linspace(xrng(1), xrng(2), 100);
+yrng = prctile(ctrl_pca(:, 2), [1, 99]);
+yctr = mean(yrng);
+yrng = (yrng - yctr) * 1.1 + yctr;
+yrng0 = linspace(yrng(1), yrng(2), 100);
+
+for drug_id = 1 : 4
+    rep = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), ...
+        'exclude', ignore);
+    
+    n_cells = size(rep.data, 1);
+    rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
+    
+    drug_pca = rep.data * coeff;
+
+    xrng = prctile(drug_pca(:, 1), [1, 99]);
+    xctr = mean(xrng);
+    xrng = (xrng - xctr) * 1.1 + xctr;
+    if xrng(1) < xrng0(1)
+        xrng0 = linspace(xrng(1), xrng0(end), 100);
+    end
+    if xrng(2) > xrng0(end)
+        xrng0 = linspace(xrng0(1), xrng(2), 100);
+    end
+    yrng = prctile(drug_pca(:, 2), [1, 99]);
+    yctr = mean(yrng);
+    yrng = (yrng - yctr) * 1.1 + yctr;
+    if yrng(1) < yrng0(1)
+        yrng0 = linspace(yrng(1), yrng0(end), 100);
+    end
+    if yrng(2) > yrng0(end)
+        yrng0 = linspace(yrng0(1), yrng(2), 100);
+    end
+end
+
+
+im_ctrl = double(hist3(ctrl_pca(:, [1, 2]), {xrng0, yrng0}));
+im_ctrl = im_ctrl ./ sum(im_ctrl(:));
+imagesc(im_ctrl);
+
+im_drug = cell(4, 1);
+conc_idx = [6, 4, 3, 4];
+for drug_id = 1 : 4
+    rep = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), ...
+        'exclude', ignore);
+    
+    n_cells = size(rep.data, 1);
+    rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
+    
+    drug_pca = rep.data * coeff;
+    im_drug{drug_id} = double(hist3(drug_pca(:, [1, 2]), {xrng0, yrng0}));
+    im_drug{drug_id} = im_drug{drug_id} ./ sum(im_drug{drug_id}(:));
+    figure(drug_id);
+    imagesc(im_drug{drug_id} - im_ctrl);
+    title(drug(drug_id).name);
+end
 
 
 %% Correlations
