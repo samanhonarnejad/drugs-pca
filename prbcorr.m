@@ -164,7 +164,6 @@ end
 im_ctrl = double(hist3(ctrl_pca(:, [1, 2]), {yrng, xrng}));
 im_ctrl = im_ctrl ./ sum(im_ctrl(:));
 im_drug = cell(4, 1);
-conc_idx = [6, 4, 3, 4];
 for drug_id = 1 : 4
     figure(drug_id);
     for dose = 2 : 7
@@ -175,12 +174,40 @@ for drug_id = 1 : 4
         im_drug = double(hist3(drug_pca(:, [1, 2]), {yrng, xrng}));
         im_drug = im_drug ./ sum(im_drug(:));
         subplot(2, 3, dose - 1);
-        contour(im_ctrl, linspace(-.015, .015, n_contour), 'k'), hold('on');
-        contour(im_drug, linspace(-.015, .015, n_contour), 'r'), hold('off');
-        colormap(cm_blue_red);
+        contour(im_ctrl, linspace(-.015, .015, 12), 'k'), hold('on');
+        contour(im_drug, linspace(-.015, .015, 12), 'r'), hold('off');
         title(drug(drug_id).name);
+        xlim([10, 60]);
+        ylim([5, 40]);
     end
 end
+
+%%
+conc_idx = [6, 4, 3, 4];
+drug_id = 4;
+ctrl = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), 'exclude', ignore);
+idx = kmeans(ctrl.data, 2, 'Replicates', 10, 'Distance', 'cosine');
+n_cells = size(ctrl.data, 1);
+ctrl.data = ctrl.data ./ repmat(sd_rep, n_cells, 1);
+indep = [5, 6, 10, 11, 12, 13, 14, 15];
+
+%%
+n = 0;
+for k1 = 1 : length(indep) - 1
+    for k2 = (k1 + 1) : length(indep)
+        n = n + 1;
+        subplot(4, 7, n);
+        subset = (rand(n_cells, 1) < 0.1); 
+        gscatter(log2(ctrl.data(subset, k1)), log2(ctrl.data(subset, ...
+            k2)), idx(subset), 'kbr','ov^',[],'off');
+        xlabel(ctrl.names{indep(k1)});
+        ylabel(ctrl.names{indep(k2)});
+    end
+end
+    
+% p53 strikingly bimodal in Lapatinib case.
+%
+%
 
 %% Correlations
 [rho, names] = staincorr([2, 7], [4, 11], idx_y);
