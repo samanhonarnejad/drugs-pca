@@ -1,4 +1,4 @@
-%%
+%% Initialize workspace.
 ignore = [5, 6, 14, 16 : 24, 30, 31, 33, 34];
 drug = struct('name', {'Lap', 'Selu', 'Dact', 'PP242'}, 'col', {[4, 5], ...
     [6, 7], [8, 9], [10, 11]});
@@ -27,6 +27,7 @@ for d = 1 : 4
         rep2 = loadcycif(c, drug(d).col(2), 'exclude', ignore);
         mn_drug = mean([rep1.data; rep2.data]);
         n = n + 1;
+        % delta = (drug - ctrl) / ctrl = drug / ctrl - 1
         delta_drug(n, :) = mn_drug ./ mn_ctrl - 1;
     end
 end
@@ -63,7 +64,7 @@ end
 % identify clusters of signaling states in control well. Use cosine, i.e.
 % angle between stain vectors as distance metric such that even one stain
 % can make a difference. Begin with a large number of clusters k.
-rep = loadcycif(2, drug(drug_id).col(2), 'exclude', ignore);
+rep = loadcycif(2, 4, 'exclude', ignore);
 n_cells = size(rep.data, 1);
 sd_rep = sqrt(var(rep.data));
 rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
@@ -94,25 +95,28 @@ for k1 = 1 : k - 1
 end
 
 %% this was done by eye because cluster labels change
-idx(idx == 5) = 3;
+idx(idx == 4) = 1;
+idx(idx == 5) = 4;
 k = 4;
-figure(); % ... go back to plotting histograms
+clf(); % ... go back to plotting histograms
 
 %%
-idx(idx == 3) = 1;
-idx(idx == 4) = 3;
+idx(idx == 2) = 1;
+idx(idx == 4) = 2;
 k = 3;
-figure(); % ... go back to plotting histograms
+clf(); % ... go back to plotting histograms
 
-%%
+%% Examine which signaling states distinguish each cluster.
 whole = mean(rep.data);
+shift = zeros(k, n_ch);
 for n = 1 : k
     clst = mean(rep.data(idx == n, :));
-    shift = clst - whole;
-    [~, idx_stain] = sort(abs(shift), 'descend');
+    shift(n, :) = clst - whole;
+    [~, idx_stain] = sort(abs(shift(n, :)), 'descend');
     fprintf('\ncluster %d: %d\n', n, sum(idx == n));
     for p = 1 : 3
-        fprintf('%s: %f\n', rep.names{idx_stain(p)}, shift(idx_stain(p)));
+        fprintf('%s: %f\n', rep.names{idx_stain(p)}, ...
+            shift(n, idx_stain(p)));
     end
 end
 
@@ -126,73 +130,57 @@ end
 % pRb/pS6-low state. It is difficult to find more than two clusters in
 % any of the drug-treated cells.
 
-%%
-ctrl = loadcycif(2, 4, 'exclude', ignore);
+%% Visualize unperturbed single-cell clusters in PCA of cluster centers.
+coeff_clust = pca(shift);
+clust_pca = rep.data * coeff_clust;
+[yrng, xrng] = clipping(clust_pca);
+clf();
+sty = {'k', 'b', 'r'};
+for n = 1 : k
+    im_ctrl = double(hist3(clust_pca(n == idx, [1, 2]), {yrng, xrng}));
+    im_ctrl = im_ctrl ./ size(clust_pca, 1);
+    im_ctrl = conv2(im_ctrl, fspecial('gaussian', [3, 3], 0.4), 'same');
+    contour(im_ctrl, 0.19 .^ (1 : 6), sty{n}), hold('on');
+end
+ticks = 10 : 10 : 100;
+set(gca(), 'xtick', ticks, 'xticklabel', round(xrng(ticks), 1), ...
+    'ytick', ticks, 'yticklabel', round(yrng(ticks), 1));
+
+%% Visualize cluster changes due to drugs in PCA of bulk drug effects.
+ctrl = loadcycif(2, 5, 'exclude', ignore);
 n_cells = size(ctrl.data, 1);
 ctrl.data = ctrl.data ./ repmat(sd_rep, n_cells, 1);
-
 ctrl_pca = ctrl.data * coeff;
-
-xrng = prctile(ctrl_pca(:, 1), [1, 99]);
-xctr = mean(xrng);
-xrng = (xrng - xctr) * 1.1 + xctr;
-xrng0 = linspace(xrng(1), xrng(2), 100);
-yrng = prctile(ctrl_pca(:, 2), [1, 99]);
-yctr = mean(yrng);
-yrng = (yrng - yctr) * 1.1 + yctr;
-yrng0 = linspace(yrng(1), yrng(2), 100);
-
+[yrng, xrng] = clipping(clust_pca);
 for drug_id = 1 : 4
-    rep = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), ...
-        'exclude', ignore);
-    
-    n_cells = size(rep.data, 1);
-    rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
-    
-    drug_pca = rep.data * coeff;
-
-    xrng = prctile(drug_pca(:, 1), [1, 99]);
-    xctr = mean(xrng);
-    xrng = (xrng - xctr) * 1.1 + xctr;
-    if xrng(1) < xrng0(1)
-        xrng0 = linspace(xrng(1), xrng0(end), 100);
-    end
-    if xrng(2) > xrng0(end)
-        xrng0 = linspace(xrng0(1), xrng(2), 100);
-    end
-    yrng = prctile(drug_pca(:, 2), [1, 99]);
-    yctr = mean(yrng);
-    yrng = (yrng - yctr) * 1.1 + yctr;
-    if yrng(1) < yrng0(1)
-        yrng0 = linspace(yrng(1), yrng0(end), 100);
-    end
-    if yrng(2) > yrng0(end)
-        yrng0 = linspace(yrng0(1), yrng(2), 100);
+    for dose = 3 : 7
+        rep = loadcycif(dose, drug(drug_id).col(1), 'exclude', ignore);
+        n_cells = size(rep.data, 1);
+        rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
+        drug_pca = rep.data * coeff;
+        [yrng, xrng] = clipping(clust_pca, yrng, xrng);
     end
 end
-
-
-im_ctrl = double(hist3(ctrl_pca(:, [1, 2]), {xrng0, yrng0}));
+im_ctrl = double(hist3(ctrl_pca(:, [1, 2]), {yrng, xrng}));
 im_ctrl = im_ctrl ./ sum(im_ctrl(:));
-imagesc(im_ctrl);
-
 im_drug = cell(4, 1);
 conc_idx = [6, 4, 3, 4];
 for drug_id = 1 : 4
-    rep = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), ...
-        'exclude', ignore);
-    
-    n_cells = size(rep.data, 1);
-    rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
-    
-    drug_pca = rep.data * coeff;
-    im_drug{drug_id} = double(hist3(drug_pca(:, [1, 2]), {xrng0, yrng0}));
-    im_drug{drug_id} = im_drug{drug_id} ./ sum(im_drug{drug_id}(:));
     figure(drug_id);
-    imagesc(im_drug{drug_id} - im_ctrl);
-    title(drug(drug_id).name);
+    for dose = 2 : 7
+        rep = loadcycif(dose, drug(drug_id).col(1), 'exclude', ignore);
+        n_cells = size(rep.data, 1);
+        rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
+        drug_pca = rep.data * coeff;
+        im_drug = double(hist3(drug_pca(:, [1, 2]), {yrng, xrng}));
+        im_drug = im_drug ./ sum(im_drug(:));
+        subplot(2, 3, dose - 1);
+        contour(im_ctrl, linspace(-.015, .015, n_contour), 'k'), hold('on');
+        contour(im_drug, linspace(-.015, .015, n_contour), 'r'), hold('off');
+        colormap(cm_blue_red);
+        title(drug(drug_id).name);
+    end
 end
-
 
 %% Correlations
 [rho, names] = staincorr([2, 7], [4, 11], idx_y);
