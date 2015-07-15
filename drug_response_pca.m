@@ -11,12 +11,13 @@ n_doses = length(doses);
 cell_line = '10a';
 timepoint = '24h';
 idx_pRB = length(signals_647) + 1;
-drug_effects = zeros(length(drugs), n_doses - 1, idx_pRB);
+n_drugs = length(drugs);
+drug_effects = zeros(n_drugs, n_doses - 1, idx_pRB);
 ch_647 = 3;
 ch_568 = 5;
 
 %% Read mean of stainings for each drug treatment.
-for drug_id = 1 : length(drugs)
+for drug_id = 1 : n_drugs
     % plate number starts over for each drug.
     plate_id = 0;
     for stain_id = 1 : length(signals_647)
@@ -54,9 +55,40 @@ for drug_id = 1 : length(drugs)
 end
 save 10a_24h_drug_effects.mat
 
+%%
+n_sig = length(signals_647);
+sd_stain = zeros(n_sig + 1, 1);
+
+for drug_id = 1 : n_drugs
+    % plate number starts over for each drug.
+    plate_id = 0;
+    for stain_id = 1 : n_sig
+        if mod(stain_id, 6) == 1
+            % switch plates.
+            plate_id = plate_id + 1;
+            col = 1;
+        end
+        folder = sprintf('%s_%s_%s_P%d/', cell_line, ...
+            drugs{drug_id}, timepoint, plate_id);
+        % DMSO was added to row 1.
+        sd_stain(stain_id) = sd_stain(stain_id) + ...
+            std(read_stains(folder, 1, col, ch_647));
+        col = col + 2;
+    end
+    sd_stain(idx_pRB) = sd_stain(idx_pRB) + ...
+        std(read_stains(folder, 1, 6, ch_568));
+end
+sd_stain = sd_stain / n_drugs;
+
 %% PCA
 load 10a_24h_drug_effects.mat
 drug_effects = log2(drug_effects);
+
+for k = 1 : n_sig + 1
+    drug_effects(:, :, k) = drug_effects(:, :, k) ./ ...
+        repmat(sd_stain(k), n_drugs, n_doses - 1);
+end
+
 n_drugs = length(drugs);
 n_sigs = length(signals_647) + 1;
 dfx = zeros(n_drugs * (n_doses - 1), n_sigs);

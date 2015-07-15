@@ -28,10 +28,14 @@ for d = 1 : 4
         mn_drug = mean([rep1.data; rep2.data]);
         n = n + 1;
         % delta = (drug - ctrl) / ctrl = drug / ctrl - 1
-        delta_drug(n, :) = mn_drug ./ mn_ctrl - 1;
+        delta_drug(n, :) = log2(mn_drug ./ mn_ctrl);
+        % delta_drug(n, :) = mn_drug ./ mn_ctrl - 1;
     end
 end
-% principal component analysis of drug-induced shifts
+save cycif_drug_effects.mat
+
+%% principal component analysis of drug-induced shifts
+
 coeff = pca(delta_drug);
 % plot projection along first two principal components
 figure(1), clf(), hold('on');
@@ -41,9 +45,9 @@ for d = 1 : 4
     mn_prev = [];
     for c = 2 : 6
         rep1 = loadcycif(c, drug(d).col(1), 'exclude', ignore);
-        rep1 = (mean(rep1.data) - mn_ctrl) ./ mn_ctrl * coeff;
+        rep1 = log2(mean(rep1.data) ./ mn_ctrl) * coeff;
         rep2 = loadcycif(c, drug(d).col(2), 'exclude', ignore);
-        rep2 = (mean(rep2.data) - mn_ctrl) ./ mn_ctrl * coeff;
+        rep2 = log2(mean(rep2.data) ./ mn_ctrl) * coeff;
         mn = 0.5 * (rep1 + rep2);
         ellipse2d(rep1, rep2, col{d}, (c / 6) .^ 2);
         if ~isempty(mn_prev)
@@ -107,6 +111,7 @@ k = 3;
 clf(); % ... go back to plotting histograms
 
 %% Examine which signaling states distinguish each cluster.
+load kmeans-merged.mat
 whole = mean(rep.data);
 shift = zeros(k, n_ch);
 for n = 1 : k
