@@ -11,5 +11,6 @@ end
 if n > 0
     mn_sig = mn_sig / n;
 else
-    error('No CSV file for any replicate in %s for row %d.', folder, row);
+    error('No CSV file for any replicate in %s for row %d, col %d, %d', ...
+        folder, row, col(1), col(2));
 end
