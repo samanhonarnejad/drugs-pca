@@ -117,3 +117,68 @@ xlim([-0.025, 0.075]);
 ylim([-0.05, 0.05]);
 legend(drugs);
 hold('off');
+
+%% Correlation of drug effects on p27 with CycIF dataset
+% traditional dataset
+p27_trad = zeros(n_drugs, 2);
+idx_p27 = find(strcmp(signals_647, 'p27'));
+conc_corr = 6;
+for drug_id = 1 : n_drugs
+    % plate number starts over for each drug.
+    plate_id = 0;
+    for stain_id = 1 : length(signals_647)
+        if mod(stain_id, 6) == 1
+            % switch plates.
+            plate_id = plate_id + 1;
+            col = 1;
+        end
+        if stain_id == idx_p27
+            folder = sprintf('%s_%s_%s_P%d/', cell_line, ...
+                drugs{drug_id}, timepoint, plate_id);
+            mn_ctrl = read_mean_stains(folder, 1, col, ch_647);
+            mn_drug = read_mean_stains(folder, 1 + conc_corr, ...
+                col, ch_647); 
+            p27_trad(drug_id, 1) = log2(mn_drug ./ mn_ctrl);
+            mn_ctrl = read_mean_stains(folder, 1, col + 1, ch_647);
+            mn_drug = read_mean_stains(folder, 1 + conc_corr, ...
+                col + 1, ch_647); 
+            p27_trad(drug_id, 2) = log2(mn_drug ./ mn_ctrl);
+        end
+        col = col + 2;
+    end
+end
+idx_selu = find(strcmp(drugs, 'AZD6244'));
+idx_bez = find(strcmp(drugs, 'BEZ235'));
+idx_lapa = find(strcmp(drugs, 'Lapatinib'));
+idx_pp242 = find(strcmp(drugs, 'PP242'));
+p27_trad = p27_trad([idx_lapa, idx_selu, idx_bez, idx_pp242], :);
+% cycif dataset
+p27_cycif = zeros(4, 2);
+for col = first_col : last_col
+    if col == first_col
+        ctrl = loadcycif(2, col, 'exclude', ignore);
+    else
+        other_ctrl = loadcycif(2, col, 'exclude', ignore);
+        ctrl.data = [ctrl.data; other_ctrl.data];
+    end
+end
+mn_ctrl = mean(ctrl.data(:, idx_p27));
+idx_p27 = find(strcmp(ctrl.names, 'p27'));
+conc_corr = 5;
+for d = 1 : 4
+    for r = 1 : 2
+        rep = loadcycif(conc_corr, drug(d).col(r), 'exclude', ignore);
+        mn_drug = mean(rep.data(:, idx_p27));
+        p27_cycif(d, r) = log2(mn_drug ./ mn_ctrl);
+    end
+end
+
+%%
+mn_cycif = mean(p27_cycif, 2);
+mn_trad = mean(p27_trad, 2);
+for d = 1 : 4
+    
+    line([p27_trad(d, 1), p27_trad(d, 2)], [mn_cycif(d), mn_cycif(d)]);
+    line([mn_trad(d), mn_trad(d)], [p27_cycif(d, 1), p27_cycif(d, 2)]);
+    
+end
