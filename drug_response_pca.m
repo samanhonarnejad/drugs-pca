@@ -58,7 +58,6 @@ save 10a_24h_drug_effects.mat
 %%
 n_sig = length(signals_647);
 sd_stain = zeros(n_sig + 1, 1);
-
 for drug_id = 1 : n_drugs
     % plate number starts over for each drug.
     plate_id = 0;
@@ -83,12 +82,10 @@ sd_stain = sd_stain / n_drugs;
 %% PCA
 load 10a_24h_drug_effects.mat
 drug_effects = log2(drug_effects);
-
 for k = 1 : n_sig + 1
     drug_effects(:, :, k) = drug_effects(:, :, k) ./ ...
         repmat(sd_stain(k), n_drugs, n_doses - 1);
 end
-
 n_drugs = length(drugs);
 n_sigs = length(signals_647) + 1;
 dfx = zeros(n_drugs * (n_doses - 1), n_sigs);
@@ -110,13 +107,13 @@ end
 idx_stain = find(sqrt(sum(coeff(:, [1, 2]) .^ 2, 2)) > 0.4);
 for sig = idx_stain'
     vec = zeros(19, 1);
-    vec(sig) = -1;
+    vec(sig) = 0.05;
     vec = vec' * coeff;
     h = annotation('arrow');
     set(h, 'parent', gca(), 'position', [0, 0, vec(1), vec(2)]);
     text(1.2 * vec(1), 1.2 * vec(2), signals_647{sig});
 end
-xlim([-3.5, 0.5]);
-ylim([-1.5, 1]);
+xlim([-0.025, 0.075]);
+ylim([-0.05, 0.05]);
 legend(drugs);
 hold('off');
