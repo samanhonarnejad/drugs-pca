@@ -172,13 +172,47 @@ for d = 1 : 4
         p27_cycif(d, r) = log2(mn_drug ./ mn_ctrl);
     end
 end
-
-%%
 mn_cycif = mean(p27_cycif, 2);
 mn_trad = mean(p27_trad, 2);
 for d = 1 : 4
-    
     line([p27_trad(d, 1), p27_trad(d, 2)], [mn_cycif(d), mn_cycif(d)]);
     line([mn_trad(d), mn_trad(d)], [p27_cycif(d, 1), p27_cycif(d, 2)]);
-    
 end
+
+%% Histograms of pCDK2 and p27 in response to gefitinib.
+n_bin = 100;
+idx_pcdk2 = find(strcmp(signals_647, 'pCDK2_{Tyr15}'));
+plate_id = ceil(idx_pcdk2 / 6);
+folder = sprintf('%s_%s_%s_P%d/', cell_line, 'Gefitinib', timepoint, ...
+    plate_id);
+
+col1 = 2 * mod(7 - 1, 6) + 1;
+col2 = col1;
+
+pcdk2 = cell(1, n_doses);
+pcdk2_lo = inf;
+pcdk2_hi = -inf;
+for conc = 1 : n_doses
+    rep1 = read_stains(folder, conc, col1, ch_647);
+    rep2 = read_stains(folder, conc, col2, ch_647);
+    pcdk2{conc} = [rep1; rep2];
+    % identify range
+    min_pcdk2 = min(pcdk2{conc});
+    if min_pcdk2 < pcdk2_lo
+        pcdk2_lo = min_pcdk2;
+    end
+    max_pcdk2 = prctile(pcdk2{conc}, 99);
+    if max_pcdk2 > pcdk2_hi
+        pcdk2_hi = max_pcdk2;
+    end
+end
+
+log_rng_cdk2 = linspace(log2(pcdk2_lo), log2(pcdk2_hi), n_bin);
+figure();
+for conc = 1 : n_doses
+    n = hist(log2(pcdk2{conc}), log_rng_cdk2);
+    n = n / sum(n);
+    plot(log_rng_cdk2(1 : end - 1), n(1 : end - 1), 'k');
+    hold on;
+end
+hold off;
