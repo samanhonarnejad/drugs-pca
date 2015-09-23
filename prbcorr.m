@@ -35,7 +35,7 @@ end
 save cycif_drug_effects.mat
 
 %% principal component analysis of drug-induced shifts
-
+load cycif_drug_effects.mat
 coeff = pca(delta_drug);
 % plot projection along first two principal components
 figure(1), clf(), hold('on');
@@ -49,11 +49,12 @@ for d = 1 : 4
         rep2 = loadcycif(c, drug(d).col(2), 'exclude', ignore);
         rep2 = log2(mean(rep2.data) ./ mn_ctrl) * coeff;
         mn = 0.5 * (rep1 + rep2);
-        ellipse2d(rep1, rep2, col{d}, (c / 6) .^ 2);
+        % ellipse2d(rep1, rep2, col{d}, (c / 6) .^ 2);
         if ~isempty(mn_prev)
             line([mn_prev(1), mn(1)], [mn_prev(2), mn(2)], 'color', ...
                 col{d}, 'linewidth', (c - 2) .^ 1.2);
         end
+        crosshairs(rep1, rep2);
         mn_prev = mn;
     end
 end
