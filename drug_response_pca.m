@@ -12,9 +12,12 @@ cell_line = '10a';
 timepoint = '24h';
 idx_pRB = length(signals_647) + 1;
 n_drugs = length(drugs);
-drug_effects = zeros(n_drugs, n_doses - 1, idx_pRB);
+% drug_effects = nan(n_drugs, n_doses - 1, 2, idx_pRB);
+drug_effects = struct('rep', {});
 ch_647 = 3;
 ch_568 = 5;
+data_path = ['/Volumes/imstor/sorger/data/Operetta/Saman/Fixed Cell/', ...
+    'Nature Scientific Data/Data/Drug Response/Analysis/'];
 
 %% Read mean of stainings for each drug treatment.
 for drug_id = 1 : n_drugs
@@ -26,34 +29,59 @@ for drug_id = 1 : n_drugs
             plate_id = plate_id + 1;
             col = 1;
         end
-        folder = sprintf('%s_%s_%s_P%d/', cell_line, ...
+        folder = sprintf([data_path, '%s_%s_%s_P%d/'], cell_line, ...
             drugs{drug_id}, timepoint, plate_id);
         % DMSO was added to row 1.
-        mn_ctrl = read_stain_reps(folder, 1, [col, col + 1], ch_647);
+        mn_ctrl = mean(read_stain_reps(folder, 1, [col, col + 1], ch_647));
         for conc = 1 : n_doses - 1
-            mn_drug = read_stain_reps(folder, 1 + conc, [col, col + 1], ...
-                ch_647); 
-            drug_effects(drug_id, conc, stain_id) = mn_drug ./ mn_ctrl;
+            drug_reps = read_stain_reps(folder, 1 + conc, ...
+                [col, col + 1], ch_647);
+            n_rep = length(drug_reps);
+            drug_effects(drug_id, conc, stain_id).rep = zeros(n_rep, 1);
+            for rep = 1 : n_rep
+                drug_effects(drug_id, conc, stain_id).rep(rep) = ...
+                    drug_reps(rep) ./ mn_ctrl;
+            end
         end
         col = col + 2;
     end
     % augment effect matrix by drug effects on p-Rb.
-    mn_drug = zeros(n_doses, 1);
-    for plate_id = 1 : 3
-        folder = sprintf('%s_%s_%s_P%d/', cell_line, drugs{drug_id}, ...
-            timepoint, plate_id);
-        for conc = 1 : n_doses
-            mn_drug(conc) = mn_drug(conc) + read_stain_reps(folder, ...
-                conc, 1 : 12, ch_568);
-        end
+    for k = 1 : n_doses
+        drug_effects(drug_id, conc, idx_pRB).rep = [];
     end
-    for conc = 2 : n_doses
-        drug_effects(drug_id, conc - 1, idx_pRB) = mn_drug(conc) ./ ...
-            mn_drug(1);
+    for conc = 1 : n_doses
+        mn_drug = [];
+        for plate_id = 1 : 3
+            folder = sprintf([data_path, '%s_%s_%s_P%d/'], cell_line, ...
+                drugs{drug_id}, timepoint, plate_id);
+            mn_drug = [mn_drug; read_stain_reps(folder, ...
+                conc, 1 : 12, ch_568)]; %#ok<AGROW>
+            n_rep = n_rep + 1;
+        end
+        if conc == 1
+            mn_ctrl = mean(mn_drug(~isnan(mn_drug)));
+        else
+            drug_effects(drug_id, conc - 1, idx_pRB).rep = ...
+                mn_drug(~isnan(mn_drug)) / mn_ctrl;
+        end
     end
     fprintf('finished analyzing stains for %s\n', drugs{drug_id});
 end
 save 10a_24h_drug_effects.mat
+
+
+%%
+load 10a_24h_drug_effects.mat
+mn_drug_effects = zeros(9, 7, 19);
+for drug_id = 1 : 9
+    for conc = 1 : 7
+        for stain = 1 : 19
+            mn_drug_effects(drug_id, conc, stain) = ...
+                mean(drug_effects(drug_id, conc, stain).rep);
+        end
+    end
+end
+drug_effects = mn_drug_effects;
 
 %%
 n_sig = length(signals_647);
@@ -80,12 +108,12 @@ end
 sd_stain = sd_stain / n_drugs;
 
 %% PCA
-load 10a_24h_drug_effects.mat
+figure();
 drug_effects = log2(drug_effects);
-for k = 1 : n_sig + 1
-    drug_effects(:, :, k) = drug_effects(:, :, k) ./ ...
-        repmat(sd_stain(k), n_drugs, n_doses - 1);
-end
+% for k = 1 : n_sig + 1
+%     drug_effects(:, :, k) = drug_effects(:, :, k) ./ ...
+%         repmat(sd_stain(k), n_drugs, n_doses - 1);
+% end
 n_drugs = length(drugs);
 n_sigs = length(signals_647) + 1;
 dfx = zeros(n_drugs * (n_doses - 1), n_sigs);
@@ -113,8 +141,8 @@ for sig = idx_stain'
     set(h, 'parent', gca(), 'position', [0, 0, vec(1), vec(2)]);
     text(1.2 * vec(1), 1.2 * vec(2), signals_647{sig});
 end
-xlim([-0.025, 0.075]);
-ylim([-0.05, 0.05]);
+% xlim([-0.025, 0.075]);
+% ylim([-0.05, 0.05]);
 legend(drugs);
 hold('off');
 
