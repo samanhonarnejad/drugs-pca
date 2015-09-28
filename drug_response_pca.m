@@ -69,7 +69,6 @@ for drug_id = 1 : n_drugs
 end
 save 10a_24h_drug_effects.mat
 
-
 %%
 load 10a_24h_drug_effects.mat
 mn_drug_effects = zeros(9, 7, 19);
@@ -81,7 +80,6 @@ for drug_id = 1 : 9
         end
     end
 end
-drug_effects = mn_drug_effects;
 
 %%
 n_sig = length(signals_647);
@@ -108,8 +106,8 @@ end
 sd_stain = sd_stain / n_drugs;
 
 %% PCA
-figure();
-drug_effects = log2(drug_effects);
+figure(1), clf();
+mn_drug_effects = log2(mn_drug_effects);
 % for k = 1 : n_sig + 1
 %     drug_effects(:, :, k) = drug_effects(:, :, k) ./ ...
 %         repmat(sd_stain(k), n_drugs, n_doses - 1);
@@ -119,17 +117,27 @@ n_sigs = length(signals_647) + 1;
 dfx = zeros(n_drugs * (n_doses - 1), n_sigs);
 for drug_id = 1 : n_drugs
     dfx((1 : n_doses - 1) + (drug_id - 1) * (n_doses - 1), :) = ...
-        squeeze(drug_effects(drug_id, :, :));
+        squeeze(mn_drug_effects(drug_id, :, :));
 end
 mn_dfx = mean(dfx);
 dfx = dfx - repmat(mn_dfx, n_drugs * (n_doses - 1), 1);
 coeff = pca(dfx);
 offset = -mn_dfx * coeff;
 sty = {'-ob', '-ok', '-om', '-^m', '-sm', '-or', '-^b', '-^k', '-^r'};
+shift_mat = repmat(mn_dfx, 7, 1);
 for drug_id = 1 : length(drugs)
-    titr = squeeze(drug_effects(drug_id, :, :)) * coeff;
+    titr = (squeeze(mn_drug_effects(drug_id, :, :)) - shift_mat) * coeff;
     x = titr(:, 1) - offset(1);
     y = titr(:, 2) - offset(2);
+    for conc = 1 : 7
+        sd = zeros(1, 19);
+        for stain = 1 : 19
+            sd(stain) = std(drug_effects(drug_id, conc, stain).rep);
+        end
+        eb_mid_base = squeeze(mn_drug_effects(drug_id, conc, :))' - mn_dfx;
+        eb_hi = (eb_mid_base + sd) * coeff;
+        eb_lo = (eb_mid_base - sd) * coeff;
+    end
     plot(x, y, sty{drug_id}), hold('on');
 end
 idx_stain = find(sqrt(sum(coeff(:, [1, 2]) .^ 2, 2)) > 0.4);
@@ -169,7 +177,7 @@ for drug_id = 1 : n_drugs
             p27_trad(drug_id, 1) = log2(mn_drug ./ mn_ctrl);
             mn_ctrl = read_mean_stains(folder, 1, col + 1, ch_647);
             mn_drug = read_mean_stains(folder, 1 + conc_corr, ...
-                col + 1, ch_647); 
+                col + 1, ch_647);
             p27_trad(drug_id, 2) = log2(mn_drug ./ mn_ctrl);
         end
         col = col + 2;
