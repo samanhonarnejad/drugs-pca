@@ -16,8 +16,8 @@ n_drugs = length(drugs);
 drug_effects = struct('rep', {});
 ch_647 = 3;
 ch_568 = 5;
-data_path = ['/Volumes/imstor/sorger/data/Operetta/Saman/Fixed Cell/', ...
-    'Nature Scientific Data/Data/Drug Response/Analysis/'];
+data_path = ''; %['/Volumes/imstor/sorger/data/Operetta/Saman/Fixed Cell/', ...
+    %'Nature Scientific Data/Data/Drug Response/Analysis/'];
 
 %% Read mean of stainings for each drug treatment.
 for drug_id = 1 : n_drugs
@@ -69,49 +69,49 @@ for drug_id = 1 : n_drugs
 end
 save 10a_24h_drug_effects.mat
 
-%%
+%% PCA
 load 10a_24h_drug_effects.mat
+norm_dyn = false; %#ok<*UNRCH>
+n_sig = length(signals_647);
+if norm_dyn
+    sd_stain = zeros(n_sig + 1, 1);
+    for drug_id = 1 : n_drugs
+        % plate number starts over for each drug.
+        plate_id = 0;
+        for stain_id = 1 : n_sig
+            if mod(stain_id, 6) == 1
+                % switch plates.
+                plate_id = plate_id + 1;
+                col = 1;
+            end
+            folder = sprintf('%s_%s_%s_P%d/', cell_line, ...
+                drugs{drug_id}, timepoint, plate_id);
+            % DMSO was added to row 1.
+            sd_stain(stain_id) = sd_stain(stain_id) + ...
+                std(read_stains(folder, 1, col, ch_647));
+            col = col + 2;
+        end
+        sd_stain(idx_pRB) = sd_stain(idx_pRB) + ...
+            std(read_stains(folder, 1, 6, ch_568));
+    end
+    sd_stain = sd_stain / n_drugs;
+else
+    sd_stain = ones(n_sig + 1, 1);
+end
+
 mn_drug_effects = zeros(9, 7, 19);
 for drug_id = 1 : 9
     for conc = 1 : 7
         for stain = 1 : 19
+            drug_effects(drug_id, conc, stain).rep = log2(drug_effects( ...
+                drug_id, conc, stain).rep) / sd_stain(stain);
             mn_drug_effects(drug_id, conc, stain) = ...
                 mean(drug_effects(drug_id, conc, stain).rep);
         end
     end
 end
 
-%%
-n_sig = length(signals_647);
-sd_stain = zeros(n_sig + 1, 1);
-for drug_id = 1 : n_drugs
-    % plate number starts over for each drug.
-    plate_id = 0;
-    for stain_id = 1 : n_sig
-        if mod(stain_id, 6) == 1
-            % switch plates.
-            plate_id = plate_id + 1;
-            col = 1;
-        end
-        folder = sprintf('%s_%s_%s_P%d/', cell_line, ...
-            drugs{drug_id}, timepoint, plate_id);
-        % DMSO was added to row 1.
-        sd_stain(stain_id) = sd_stain(stain_id) + ...
-            std(read_stains(folder, 1, col, ch_647));
-        col = col + 2;
-    end
-    sd_stain(idx_pRB) = sd_stain(idx_pRB) + ...
-        std(read_stains(folder, 1, 6, ch_568));
-end
-sd_stain = sd_stain / n_drugs;
-
-%% PCA
 figure(1), clf();
-mn_drug_effects = log2(mn_drug_effects);
-% for k = 1 : n_sig + 1
-%     drug_effects(:, :, k) = drug_effects(:, :, k) ./ ...
-%         repmat(sd_stain(k), n_drugs, n_doses - 1);
-% end
 n_drugs = length(drugs);
 n_sigs = length(signals_647) + 1;
 dfx = zeros(n_drugs * (n_doses - 1), n_sigs);
@@ -125,6 +125,7 @@ coeff = pca(dfx);
 offset = -mn_dfx * coeff;
 sty = {'-ob', '-ok', '-om', '-^m', '-sm', '-or', '-^b', '-^k', '-^r'};
 shift_mat = repmat(mn_dfx, 7, 1);
+h_curve = zeros(length(drugs), 1);
 for drug_id = 1 : length(drugs)
     titr = (squeeze(mn_drug_effects(drug_id, :, :)) - shift_mat) * coeff;
     x = titr(:, 1) - offset(1);
@@ -135,23 +136,26 @@ for drug_id = 1 : length(drugs)
             sd(stain) = std(drug_effects(drug_id, conc, stain).rep);
         end
         eb_mid_base = squeeze(mn_drug_effects(drug_id, conc, :))' - mn_dfx;
-        eb_hi = (eb_mid_base + sd) * coeff;
-        eb_lo = (eb_mid_base - sd) * coeff;
+        eb_hi = (eb_mid_base + sd) * coeff - offset;
+        eb_lo = (eb_mid_base - sd) * coeff - offset;
+        line([eb_hi(1), eb_lo(1)], [y(conc), y(conc)]);
+        line([x(conc), x(conc)], [eb_hi(2), eb_lo(2)]);
     end
-    plot(x, y, sty{drug_id}), hold('on');
+    h_curve(drug_id) = plot(x, y, sty{drug_id});
+    hold('on');
 end
 idx_stain = find(sqrt(sum(coeff(:, [1, 2]) .^ 2, 2)) > 0.4);
 for sig = idx_stain'
     vec = zeros(19, 1);
-    vec(sig) = 0.05;
+    vec(sig) = 0.25;
     vec = vec' * coeff;
     h = annotation('arrow');
-    set(h, 'parent', gca(), 'position', [0, 0, vec(1), vec(2)]);
-    text(1.2 * vec(1), 1.2 * vec(2), signals_647{sig});
+    set(h, 'parent', gca(), 'position', [-1.4, -0.5, vec(1), vec(2)]);
+    text(1.2 * vec(1) - 1.4, 1.2 * vec(2) - 0.5, signals_647{sig});
 end
 % xlim([-0.025, 0.075]);
 % ylim([-0.05, 0.05]);
-legend(drugs);
+legend(h_curve, drugs);
 hold('off');
 
 %% Correlation of drug effects on p27 with CycIF dataset
