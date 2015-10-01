@@ -158,8 +158,10 @@ n_cells = size(ctrl.data, 1);
 ctrl.data = ctrl.data ./ repmat(sd_rep, n_cells, 1);
 ctrl_pca = ctrl.data * coeff;
 [yrng, xrng] = clipping(clust_pca);
-for drug_id = 1 : 4
-    for dose = 3 : 7
+sub_drug = [1, 2, 4];
+sub_dose = [2, 4, 7];
+for drug_id = sub_drug
+    for dose = sub_dose
         rep = loadcycif(dose, drug(drug_id).col(1), 'exclude', ignore);
         n_cells = size(rep.data, 1);
         rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
@@ -169,20 +171,19 @@ for drug_id = 1 : 4
 end
 im_ctrl = double(hist3(ctrl_pca(:, [1, 2]), {yrng, xrng}));
 im_ctrl = im_ctrl ./ sum(im_ctrl(:));
-im_drug = cell(4, 1);
-for drug_id = 1 : 4
-    figure(drug_id);
-    for dose = 2 : 7
+line_col = {'r', 'b', 'm', 'g'};
+for drug_id = sub_drug
+    for idx_dose = 1 : length(sub_dose)
+        subplot(length(sub_dose), 1, idx_dose);
+        dose = sub_dose(idx_dose);
         rep = loadcycif(dose, drug(drug_id).col(1), 'exclude', ignore);
         n_cells = size(rep.data, 1);
         rep.data = rep.data ./ repmat(sd_rep, n_cells, 1);
         drug_pca = rep.data * coeff;
         im_drug = double(hist3(drug_pca(:, [1, 2]), {yrng, xrng}));
         im_drug = im_drug ./ sum(im_drug(:));
-        subplot(2, 3, dose - 1);
         contour(im_ctrl, linspace(-.015, .015, 12), 'k'), hold('on');
-        contour(im_drug, linspace(-.015, .015, 12), 'r'), hold('off');
-        title(drug(drug_id).name);
+        contour(im_drug, linspace(-.015, .015, 12), line_col{drug_id});
         xlim([10, 60]);
         ylim([5, 40]);
     end
