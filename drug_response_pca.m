@@ -84,7 +84,7 @@ if norm_dyn
                 plate_id = plate_id + 1;
                 col = 1;
             end
-            folder = sprintf('%s_%s_%s_P%d/', cell_line, ...
+            folder = sprintf([data_path, '%s_%s_%s_P%d/'], cell_line, ...
                 drugs{drug_id}, timepoint, plate_id);
             % DMSO was added to row 1.
             sd_stain(stain_id) = sd_stain(stain_id) + ...
@@ -95,8 +95,12 @@ if norm_dyn
             std(read_stains(folder, 1, 6, ch_568));
     end
     sd_stain = sd_stain / n_drugs;
+    arr_zero = [0.03, -0.03];
+    arr_len = 0.025;
 else
     sd_stain = ones(n_sig + 1, 1);
+    arr_zero = [-1.4, -0.5];
+    arr_len = 0.25;
 end
 
 mn_drug_effects = zeros(9, 7, 19);
@@ -112,6 +116,7 @@ for drug_id = 1 : 9
 end
 
 figure(1), clf();
+axes('position', [0.3, 0.3, 0.65, 0.65]);
 n_drugs = length(drugs);
 n_sigs = length(signals_647) + 1;
 dfx = zeros(n_drugs * (n_doses - 1), n_sigs);
@@ -147,16 +152,25 @@ end
 idx_stain = find(sqrt(sum(coeff(:, [1, 2]) .^ 2, 2)) > 0.4);
 for sig = idx_stain'
     vec = zeros(19, 1);
-    vec(sig) = 0.25;
+    vec(sig) = arr_len;
     vec = vec' * coeff;
     h = annotation('arrow');
-    set(h, 'parent', gca(), 'position', [-1.4, -0.5, vec(1), vec(2)]);
-    text(1.2 * vec(1) - 1.4, 1.2 * vec(2) - 0.5, signals_647{sig});
+    set(h, 'parent', gca(), 'position', [arr_zero, vec(1), vec(2)]);
+    text(1.2 * vec(1) + arr_zero(1), 1.2 * vec(2) + arr_zero(2), ...
+        signals_647{sig});
 end
-% xlim([-0.025, 0.075]);
-% ylim([-0.05, 0.05]);
 legend(h_curve, drugs);
 hold('off');
+% y-axis, second component
+axes('position', [0.05, 0.3, 0.2, 0.65]);
+bar(coeff(:, 2));
+set(gca(), 'xtick', 1 : n_sig + 1, 'xticklabel', [signals_647, {'p-Rb'}]);
+view(-90, 90);
+% x-axis, first component
+axes('position', [0.3, 0.05, 0.65, 0.2]);
+bar(coeff(:, 1));
+set(gca(), 'xtick', 1 : n_sig + 1, 'xticklabel', [signals_647, {'p-Rb'}]);
+
 
 %% Correlation of drug effects on p27 with CycIF dataset
 % traditional dataset
