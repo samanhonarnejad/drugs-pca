@@ -27,9 +27,7 @@ for d = 1 : 4
         rep2 = loadcycif(c, drug(d).col(2), 'exclude', ignore);
         mn_drug = mean([rep1.data; rep2.data]);
         n = n + 1;
-        % delta = (drug - ctrl) / ctrl = drug / ctrl - 1
         delta_drug(n, :) = log2(mn_drug ./ mn_ctrl);
-        % delta_drug(n, :) = mn_drug ./ mn_ctrl - 1;
     end
 end
 save cycif_drug_effects.mat
@@ -38,7 +36,8 @@ save cycif_drug_effects.mat
 load cycif_drug_effects.mat
 coeff = pca(delta_drug);
 % plot projection along first two principal components
-figure(1), clf(), hold('on');
+figure(1), clf();
+axes('position', [0.3, 0.3, 0.65, 0.65]);
 col = {[0.3, 0.1, 1], [1, 0.1, 0.5], [0.6, 1, 0.0], [0.5, 0.2, 0]};
 idx0 = 0 : 5 : 15;
 for d = 1 : 4
@@ -49,7 +48,6 @@ for d = 1 : 4
         rep2 = loadcycif(c, drug(d).col(2), 'exclude', ignore);
         rep2 = log2(mean(rep2.data) ./ mn_ctrl) * coeff;
         mn = 0.5 * (rep1 + rep2);
-        % ellipse2d(rep1, rep2, col{d}, (c / 6) .^ 2);
         if ~isempty(mn_prev)
             line([mn_prev(1), mn(1)], [mn_prev(2), mn(2)], 'color', ...
                 col{d}, 'linewidth', (c - 2) .^ 1.2);
@@ -58,9 +56,15 @@ for d = 1 : 4
         mn_prev = mn;
     end
 end
-% 1: overall trend with p-RB, but the two strongest components are pS6
-% 2: p27
-% 3: again p-S6
+% y-axis, second component
+axes('position', [0.05, 0.3, 0.2, 0.65]);
+bar(coeff(:, 2));
+set(gca(), 'xtick', 1 : n_ch, 'xticklabel', ctrl.names);
+view(-90, 90);
+% x-axis, first component
+axes('position', [0.3, 0.05, 0.65, 0.2]);
+bar(coeff(:, 1));
+set(gca(), 'xtick', 1 : n_ch, 'xticklabel', ctrl.names);
 % CDK2 was not part of the CyCIF stains but p27 and CDK2 can be assumed to
 % be opposing signaling components (check for anticorration between p27 and
 % CDK2 in non-CyCIF dataset).
@@ -91,7 +95,8 @@ for k1 = 1 : k - 1
         disp(sum(n1));
         [n2, x2] = hist(subpop2, 100);
         disp(sum(n2));
-        [n_both, x_both] = hist(rep.data(idx == k1 | idx == k2, :) * sep, 100);
+        [n_both, x_both] = hist(rep.data(idx == k1 | idx == k2, :) ...
+            * sep, 100);
         subplot(4, 3, p);
         p = p + 1;
         plot([x1; x2; x_both]', [n1; n2; n_both]');
@@ -125,12 +130,10 @@ for n = 1 : k
             shift(n, idx_stain(p)));
     end
 end
-
 % cluster 1: 11476     cluster 2: 202      cluster 3: 2859
 % p-RB: -0.460307      p-H3: 7.771845      p-RB: 1.686127
 % pS6(240): -0.333169  p-Aurora: 7.421638  PCNA: 1.201503
 % pS6(235): -0.305965  gH2ax: 3.796556     pS6(240): 1.193047
-%
 % We believe that cluster 2 corresponds to mitotic cells. The two other
 % clusters are much more populated and correspond to a pRb/pS6-high or
 % pRb/pS6-low state. It is difficult to find more than two clusters in
@@ -140,7 +143,7 @@ end
 coeff_clust = pca(shift);
 clust_pca = rep.data * coeff_clust;
 [yrng, xrng] = clipping(clust_pca);
-clf();
+clf(), axes('position', [0.3, 0.3, 0.65, 0.65]);
 sty = {'k', 'b', 'r'};
 for n = 1 : k
     im_ctrl = double(hist3(clust_pca(n == idx, [1, 2]), {yrng, xrng}));
@@ -151,6 +154,15 @@ end
 ticks = 10 : 10 : 100;
 set(gca(), 'xtick', ticks, 'xticklabel', round(xrng(ticks), 1), ...
     'ytick', ticks, 'yticklabel', round(yrng(ticks), 1));
+% y-axis, first component
+axes('position', [0.05, 0.3, 0.2, 0.65]);
+bar(coeff_clust(:, 1));
+set(gca(), 'xtick', 1 : n_ch, 'xticklabel', ctrl.names);
+view(-90, 90);
+% x-axis, second component
+axes('position', [0.3, 0.05, 0.65, 0.2]);
+bar(coeff_clust(:, 2));
+set(gca(), 'xtick', 1 : n_ch, 'xticklabel', ctrl.names);
 
 %% Visualize cluster changes due to drugs in PCA of bulk drug effects.
 ctrl = loadcycif(2, 5, 'exclude', ignore);
@@ -192,7 +204,8 @@ end
 %%
 conc_idx = [6, 4, 3, 4];
 drug_id = 4;
-ctrl = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), 'exclude', ignore);
+ctrl = loadcycif(conc_idx(drug_id), drug(drug_id).col(1), ...
+    'exclude', ignore);
 idx = kmeans(ctrl.data, 2, 'Replicates', 10, 'Distance', 'cosine');
 n_cells = size(ctrl.data, 1);
 ctrl.data = ctrl.data ./ repmat(sd_rep, n_cells, 1);
@@ -211,7 +224,7 @@ for k1 = 1 : length(indep) - 1
         ylabel(ctrl.names{indep(k2)});
     end
 end
-    
+
 % p53 strikingly bimodal in Lapatinib case.
 %
 %
@@ -264,8 +277,10 @@ end
 rho_ctrl = rho ./ n;
 
 for n = 1 : 4
-    drugrep1 = loadcycif(5, drug(n).col(1), 'normalize', true, 'exclude', ignore);
-    drugrep2 = loadcycif(5, drug(n).col(2), 'normalize', true, 'exclude', ignore);
+    drugrep1 = loadcycif(5, drug(n).col(1), 'normalize', true, ...
+        'exclude', ignore);
+    drugrep2 = loadcycif(5, drug(n).col(2), 'normalize', true, ...
+        'exclude', ignore);
     rho_drug = (corr(drugrep1.data) + corr(drugrep2.data)) / 2;
 
     rho_diff = rho_drug - rho_ctrl;
