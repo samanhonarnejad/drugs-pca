@@ -50,12 +50,15 @@ for d = 1 : 4
         mn = 0.5 * (rep1 + rep2);
         if ~isempty(mn_prev)
             line([mn_prev(1), mn(1)], [mn_prev(2), mn(2)], 'color', ...
-                col{d}, 'linewidth', (c - 2) .^ 1.2);
+                col{d}, 'marker', 'o');
         end
         crosshairs(rep1, rep2);
         mn_prev = mn;
     end
 end
+pca_compass(coeff, ctrl.names, [-6, 0.5], 0.8, 0.45);
+ylim([-2.3, 2.5]);
+xlim([-7.5, 1.5]);
 % y-axis, second component
 axes('position', [0.05, 0.3, 0.2, 0.65]);
 bar(coeff(:, 2));
@@ -66,8 +69,8 @@ axes('position', [0.3, 0.05, 0.65, 0.2]);
 bar(coeff(:, 1));
 set(gca(), 'xtick', 1 : n_ch, 'xticklabel', ctrl.names);
 % CDK2 was not part of the CyCIF stains but p27 and CDK2 can be assumed to
-% be opposing signaling components (check for anticorration between p27 and
-% CDK2 in non-CyCIF dataset).
+% be opposing signaling components (check for anticorrelation between p27
+% and CDK2 in non-CycIF dataset).
 
 %% Cluster analysis of single-cell states in control condition
 % identify clusters of signaling states in control well. Use cosine, i.e.
@@ -154,6 +157,7 @@ end
 ticks = 10 : 10 : 100;
 set(gca(), 'xtick', ticks, 'xticklabel', round(xrng(ticks), 1), ...
     'ytick', ticks, 'yticklabel', round(yrng(ticks), 1));
+pca_compass(coeff_clust(:, [2, 1]), ctrl.names, [12, 30], 20, 0.4);
 % y-axis, first component
 axes('position', [0.05, 0.3, 0.2, 0.65]);
 bar(coeff_clust(:, 1));

@@ -18,6 +18,9 @@ ch_647 = 3;
 ch_568 = 5;
 data_path = ['/Volumes/imstor/sorger/data/Operetta/Saman/Fixed Cell/', ...
     'Nature Scientific Data/Data/Drug Response/Analysis/'];
+if ~exist(data_path, 'dir')
+    error('Columbus export directory not mapped.');
+end
 
 %% Read mean of stainings for each drug treatment.
 for drug_id = 1 : n_drugs
@@ -102,7 +105,6 @@ else
     arr_zero = [-1.4, -0.5];
     arr_len = 0.25;
 end
-
 mn_drug_effects = zeros(9, 7, 19);
 for drug_id = 1 : 9
     for conc = 1 : 7
@@ -114,7 +116,6 @@ for drug_id = 1 : 9
         end
     end
 end
-
 figure(1), clf();
 axes('position', [0.3, 0.3, 0.65, 0.65]);
 n_drugs = length(drugs);
@@ -149,16 +150,7 @@ for drug_id = 1 : length(drugs)
     h_curve(drug_id) = plot(x, y, sty{drug_id});
     hold('on');
 end
-idx_stain = find(sqrt(sum(coeff(:, [1, 2]) .^ 2, 2)) > 0.4);
-for sig = idx_stain'
-    vec = zeros(19, 1);
-    vec(sig) = arr_len;
-    vec = vec' * coeff;
-    h = annotation('arrow');
-    set(h, 'parent', gca(), 'position', [arr_zero, vec(1), vec(2)]);
-    text(1.2 * vec(1) + arr_zero(1), 1.2 * vec(2) + arr_zero(2), ...
-        signals_647{sig});
-end
+pca_compass(coeff, signals_647, arr_zero, arr_len, 0.4);
 legend(h_curve, drugs);
 hold('off');
 % y-axis, second component
@@ -170,7 +162,6 @@ view(-90, 90);
 axes('position', [0.3, 0.05, 0.65, 0.2]);
 bar(coeff(:, 1));
 set(gca(), 'xtick', 1 : n_sig + 1, 'xticklabel', [signals_647, {'p-Rb'}]);
-
 
 %% Correlation of drug effects on p27 with CycIF dataset
 % traditional dataset
