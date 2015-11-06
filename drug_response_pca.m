@@ -16,8 +16,8 @@ n_drugs = length(drugs);
 drug_effects = struct('rep', {});
 ch_647 = 3;
 ch_568 = 5;
-data_path = ''; %['/Volumes/imstor/sorger/data/Operetta/Saman/Fixed Cell/', ...
-    %'Nature Scientific Data/Data/Drug Response/Analysis/'];
+data_path = ['/Volumes/imstor/sorger/data/Operetta/Saman/Fixed Cell/', ...
+    'Nature Scientific Data/Data/Drug Response/Analysis/'];
 
 %% Read mean of stainings for each drug treatment.
 for drug_id = 1 : n_drugs
