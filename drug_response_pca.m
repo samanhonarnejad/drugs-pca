@@ -165,7 +165,7 @@ set(gca(), 'xtick', 1 : n_sig + 1, 'xticklabel', [signals_647, {'p-Rb'}]);
 
 %% Correlation of drug effects on p27 with CycIF dataset
 % traditional dataset
-p27_trad = zeros(n_drugs, 2);
+p27_trad = nan(n_drugs, 2);
 idx_p27 = find(strcmp(signals_647, 'p27'));
 conc_corr = 6;
 for drug_id = 1 : n_drugs
@@ -178,11 +178,10 @@ for drug_id = 1 : n_drugs
             col = 1;
         end
         if stain_id == idx_p27
-            folder = sprintf('%s_%s_%s_P%d/', cell_line, ...
+            folder = sprintf([data_path, '%s_%s_%s_P%d/'], cell_line, ...
                 drugs{drug_id}, timepoint, plate_id);
             mn_ctrl = read_mean_stains(folder, 1, col, ch_647);
-            mn_drug = read_mean_stains(folder, 1 + conc_corr, ...
-                col, ch_647); 
+            mn_drug = read_mean_stains(folder, 1 + conc_corr, col, ch_647);
             p27_trad(drug_id, 1) = log2(mn_drug ./ mn_ctrl);
             mn_ctrl = read_mean_stains(folder, 1, col + 1, ch_647);
             mn_drug = read_mean_stains(folder, 1 + conc_corr, ...
@@ -198,6 +197,11 @@ idx_lapa = find(strcmp(drugs, 'Lapatinib'));
 idx_pp242 = find(strcmp(drugs, 'PP242'));
 p27_trad = p27_trad([idx_lapa, idx_selu, idx_bez, idx_pp242], :);
 % cycif dataset
+first_col = 4;
+last_col = 11;
+ignore = [5, 6, 14, 16 : 24, 30, 31, 33, 34];
+drug = struct('name', {'Lap', 'Selu', 'Dact', 'PP242'}, 'col', {[4, 5], ...
+    [6, 7], [8, 9], [10, 11]});
 p27_cycif = zeros(4, 2);
 for col = first_col : last_col
     if col == first_col
