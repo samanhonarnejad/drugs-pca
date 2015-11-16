@@ -127,7 +127,8 @@ for drug_id = 1 : n_drugs
 end
 mn_dfx = mean(dfx);
 dfx = dfx - repmat(mn_dfx, n_drugs * (n_doses - 1), 1);
-coeff = pca(dfx);
+[coeff, ~, ~, ~, explained] = pca(dfx);
+disp(sum(explained(1 : 2)));
 offset = -mn_dfx * coeff;
 sty = {'-ob', '-ok', '-om', '-^m', '-sm', '-or', '-^b', '-^k', '-^r'};
 shift_mat = repmat(mn_dfx, 7, 1);
